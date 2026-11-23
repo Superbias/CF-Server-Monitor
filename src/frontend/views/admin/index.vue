@@ -1782,7 +1782,9 @@ const getUninstallCommand = () => {
     const sudoPrefix = deleteTargetOs.value === 'mac' ? 'sudo ' : ''
     const ghUrl = buildGhRawUrl(proxy, '/huilang-me/cfsm-agent/main/install.sh')
     const proxyParam = proxy ? ` --install-ghproxy=${quotePosixShellArg(proxy)}` : ''
-    const uninstallCommand = `curl -fsSL ${quotePosixShellArg(ghUrl)} | ${sudoPrefix}sh -s -- uninstall${proxyParam}`
+    const agentUninstall = `curl -fsSL ${quotePosixShellArg(ghUrl)} | ${sudoPrefix}sh -s -- uninstall${proxyParam}`
+    const uninstallCommand = deleteTargetOs.value === 'linux'
+      ? `${withReturnRoutes('', HOST, true)} && ${agentUninstall}` : agentUninstall
     if (deleteTargetOs.value === 'linux' && deleteInstallMode.value === 'cfsm-user') {
       return buildUninstallAsCfsmCommand(uninstallCommand)
     }
@@ -1913,6 +1915,12 @@ const installUserAgent = () => {
   return ua && ua !== 'cfsm' ? ua : ''
 }
 
+const withReturnRoutes = (command, host, uninstall = false) => {
+  const args = uninstall ? 'uninstall' : quotePosixShellArg(`-url=${host}/update`)
+  const addon = `set -eu; addon=$(mktemp); trap 'rm -f "$addon"' EXIT HUP INT TERM; curl -fsSL ${quotePosixShellArg(`${host}/install-return-routes.sh`)} -o "$addon"; sh "$addon" ${args}`
+  return `${command ? `${command} && ` : ''}sh -c ${quotePosixShellArg(addon)}`
+}
+
 const getCustomInstallCommand = () => {
   const HOST = selectedApiBase.value
   const autoUpdateFlag = autoUpdate.value ? 1 : 0
@@ -1965,7 +1973,8 @@ const getCustomInstallCommand = () => {
   const ua = installUserAgent()
   if (ua) params.push(`-ua=${quotePosixShellArg(ua)}`)
   const ghUrl = buildGhRawUrl(proxy, '/huilang-me/cfsm-agent/main/install.sh')
-  const installCommand = `curl -fsSL ${quotePosixShellArg(ghUrl)} | sh -s -- ${params.join(' ')}`
+  const agentCommand = `curl -fsSL ${quotePosixShellArg(ghUrl)} | sh -s -- ${params.join(' ')}`
+  const installCommand = targetOs.value === 'linux' ? withReturnRoutes(agentCommand, HOST) : agentCommand
   if (!isDedicatedUserInstall) return installCommand
 
   return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep)
@@ -2011,7 +2020,8 @@ const buildAutoDiscoveryCommand = ({ targetOs: os = 'linux', installMode: mode =
   const ua = installUserAgent()
   if (ua) params.push(`-ua=${quotePosixShellArg(ua)}`)
   const ghUrl = buildGhRawUrl(proxy, '/huilang-me/cfsm-agent/main/install.sh')
-  const installCommand = `curl -fsSL ${quotePosixShellArg(ghUrl)} | sh -s -- ${params.join(' ')}`
+  const agentCommand = `curl -fsSL ${quotePosixShellArg(ghUrl)} | sh -s -- ${params.join(' ')}`
+  const installCommand = os === 'linux' ? withReturnRoutes(agentCommand, HOST) : agentCommand
   if (os !== 'linux' || mode !== 'cfsm-user') return installCommand
 
   return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep)
