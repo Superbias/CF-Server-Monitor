@@ -22,29 +22,55 @@ if [ "${1:-}" = uninstall ]; then
     exit 0
 fi
 origin=''
+prepare_only=0
 for arg in "$@"; do
-    case "$arg" in -url=*) origin=${arg#-url=} ;; esac
+    case "$arg" in -url=*) origin=${arg#-url=} ;; --prepare-only) prepare_only=1 ;; esac
 done
 case "$origin" in https://*) origin="https://${origin#https://}"; origin="${origin%/update}"; origin="${origin%/}" ;; *) echo 'An HTTPS -url is required' >&2; exit 1 ;; esac
 [ "$(uname -s)" = Linux ] || { echo 'Return routes require Linux' >&2; exit 1; }
 if [ "$(id -u)" = 0 ]; then
     dir=/etc/config/cf-probe
+    set -- python3 traceroute curl
     if command -v apt-get >/dev/null 2>&1; then
+        [ "$prepare_only" = 0 ] || set -- "$@" cron
         apt-get update -qq
-        apt-get install -y -qq python3 traceroute
+        apt-get install -y -qq "$@"
+        cron_service=cron
     elif command -v dnf >/dev/null 2>&1; then
-        dnf install -y python3 traceroute
+        [ "$prepare_only" = 0 ] || set -- "$@" cronie
+        dnf install -y "$@"
+        cron_service=crond
     elif command -v yum >/dev/null 2>&1; then
-        yum install -y python3 traceroute
+        [ "$prepare_only" = 0 ] || set -- "$@" cronie
+        yum install -y "$@"
+        cron_service=crond
     elif command -v apk >/dev/null 2>&1; then
-        apk add --no-cache python3 traceroute
+        [ "$prepare_only" = 0 ] || set -- "$@" dcron
+        apk add --no-cache "$@"
+        cron_service=dcron
     fi
 else
+    [ "$prepare_only" = 0 ] || { echo '--prepare-only requires root' >&2; exit 1; }
     dir="$HOME/.cf-probe"
 fi
 command -v python3 >/dev/null 2>&1 || { echo 'Install python3 as root, then rerun the installation' >&2; exit 1; }
 command -v traceroute >/dev/null 2>&1 || { echo 'Install Linux traceroute as root, then rerun the installation' >&2; exit 1; }
 traceroute --help 2>&1 | grep -q -- '-A' || { echo 'traceroute must support -A (BusyBox is not supported)' >&2; exit 1; }
+if [ "$prepare_only" = 1 ]; then
+    command -v crontab >/dev/null 2>&1 || { echo 'Install cron before using the dedicated user' >&2; exit 1; }
+    [ -n "${cron_service:-}" ] || { echo 'Unsupported package manager: start the cron daemon manually' >&2; exit 1; }
+    if [ -d /run/systemd/system ]; then
+        systemctl enable --now "$cron_service"
+        systemctl is-active --quiet "$cron_service"
+    elif command -v rc-service >/dev/null 2>&1; then
+        rc-update add "$cron_service" default
+        rc-service "$cron_service" start
+    else
+        echo 'Cannot start the cron daemon automatically' >&2; exit 1
+    fi
+    echo 'Return route dependencies and cron ready'
+    exit 0
+fi
 [ -r "$dir/config.conf" ] || { echo 'Install the Agent first: config.conf is missing' >&2; exit 1; }
 umask 077
 tmp=$(mktemp "$dir/return-routes.XXXXXX")
