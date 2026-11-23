@@ -94,10 +94,10 @@ Nice=19
 EOF
     cat > /etc/systemd/system/cfsm-return-routes.timer <<'EOF'
 [Unit]
-Description=Probe CFSM return routes every six hours
+Description=Probe CFSM return routes every hour
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=6h
+OnUnitActiveSec=1h
 RandomizedDelaySec=5min
 [Install]
 WantedBy=timers.target
@@ -112,7 +112,7 @@ else
     minute=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
     minute=$((minute % 60))
     old=$(crontab -l 2>/dev/null || true)
-    { printf '%s\n' "$old" | sed '/# cfsm-return-routes$/d'; printf '%s */6 * * * %s >/dev/null 2>&1 # cfsm-return-routes\n' "$minute" "$job"; } | crontab -
+    { printf '%s\n' "$old" | sed '/# cfsm-return-routes$/d'; printf '%s * * * * %s >/dev/null 2>&1 # cfsm-return-routes\n' "$minute" "$job"; } | crontab -
     nohup "$python" "$dir/return-routes.py" --agent-config "$dir/config.conf" >/dev/null 2>&1 &
 fi
-echo 'Return route probing installed. First result may take up to five minutes; subsequent runs every six hours.'
+echo 'Return route probing installed. First result may take up to five minutes; subsequent runs every hour.'
