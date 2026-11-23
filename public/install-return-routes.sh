@@ -76,7 +76,7 @@ umask 077
 tmp=$(mktemp "$dir/return-routes.XXXXXX")
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 curl -fsSL --connect-timeout 10 --max-time 60 "$origin/return-routes.py" -o "$tmp"
-python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$tmp"
+python3 -c 'import ast,sys; ast.parse(open(sys.argv[1], encoding="utf-8").read())' "$tmp"
 mv "$tmp" "$dir/return-routes.py"
 python=$(command -v python3)
 if [ "$(id -u)" = 0 ] && [ -d /run/systemd/system ]; then
@@ -104,6 +104,7 @@ WantedBy=timers.target
 EOF
     systemctl daemon-reload
     systemctl enable --now cfsm-return-routes.timer
+    systemctl restart cfsm-return-routes.timer
     systemctl start --no-block cfsm-return-routes.service
 else
     command -v crontab >/dev/null 2>&1 || { echo 'A running cron daemon and crontab are required on systems without systemd' >&2; exit 1; }
@@ -115,4 +116,4 @@ else
     { printf '%s\n' "$old" | sed '/# cfsm-return-routes$/d'; printf '%s * * * * %s >/dev/null 2>&1 # cfsm-return-routes\n' "$minute" "$job"; } | crontab -
     nohup "$python" "$dir/return-routes.py" --agent-config "$dir/config.conf" >/dev/null 2>&1 &
 fi
-echo 'Return route probing installed. First result may take up to five minutes; subsequent runs every hour.'
+echo 'IPv4/IPv6 return route probing installed. First result may take up to five minutes; subsequent runs every hour.'
