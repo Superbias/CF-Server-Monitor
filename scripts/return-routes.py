@@ -6,6 +6,8 @@ import json
 import os
 import re
 import shutil
+import socket
+from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import sys
 import urllib.parse
@@ -40,8 +42,8 @@ def probe(carrier, target):
     route = {'carrier': carrier, 'target': target, 'status': 'error', 'error': '', 'hops': []}
     try:
         # Numeric addresses only: no shell expansion or DNS destination changes.
-        ipaddress.IPv4Address(target)
-        result = subprocess.run(['traceroute', '-4', '-n', '-A', '-q', '1', '-w', '1', '-m', '30', target],
+        address = ipaddress.ip_address(target)
+        result = subprocess.run(['traceroute', '-{}'.format(address.version), '-n', '-A', '-q', '1', '-w', '1', '-m', '30', target],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 universal_newlines=True, timeout=90, check=False)
         route['hops'] = parse_hops(result.stdout)
@@ -52,6 +54,35 @@ def probe(carrier, target):
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         route['error'] = str(exc)[:500]
     return route
+
+
+V6_TARGETS = {'telecom': '240e:97c:2f:3000::44', 'unicom': '2408:80f1:21:5003::a',
+              'mobile': '2409:8c00:8421:1303::55'}
+
+
+def has_ipv6_route(target):
+    try:
+        # UDP connect only checks the kernel route; it sends no packet.
+        with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+            sock.connect((target, 80))
+            return ipaddress.ip_address(sock.getsockname()[0]).is_global
+    except OSError:
+        return False
+
+
+def probe_dual_stack(config):
+    carriers = ('telecom', 'unicom', 'mobile')
+    v6_targets = config.get('targets_v6', V6_TARGETS)
+    for carrier in carriers:
+        ipaddress.IPv4Address(config['targets'][carrier])
+        ipaddress.IPv6Address(v6_targets[carrier])
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        v4 = [pool.submit(probe, c, config['targets'][c]) for c in carriers]
+        v6 = [pool.submit(probe, c, v6_targets[c]) if has_ipv6_route(v6_targets[c]) else None for c in carriers]
+        return {'routes': [f.result() for f in v4],
+                'routes_v6': [f.result() if f else {'carrier': c, 'target': v6_targets[c],
+                    'status': 'unsupported', 'error': '本机无可用 IPv6 出口', 'hops': []}
+                    for c, f in zip(carriers, v6)]}
 
 
 def load_agent_config(path):
@@ -98,15 +129,15 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        routes = [probe(c, config['targets'][c]) for c in ('telecom', 'unicom', 'mobile')]
+        payload = probe_dual_stack(config)
         url = config['worker'].rstrip('/') + '/return-routes?' + urllib.parse.urlencode({'id': config['server_id']})
-        request = urllib.request.Request(url, data=json.dumps({'routes': routes}).encode(),
+        request = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                          headers={'Authorization': 'Bearer ' + config['secret'], 'Content-Type': 'application/json',
                                                   'User-Agent': config.get('ua', 'cfsm')}, method='POST')
         with urllib.request.urlopen(request, timeout=30) as response:
             if response.status != 200:
                 raise ValueError('Upload failed')
-        print('Three carrier return routes uploaded')
+        print('Three carrier IPv4/IPv6 return routes uploaded')
 
 
 if __name__ == '__main__':
