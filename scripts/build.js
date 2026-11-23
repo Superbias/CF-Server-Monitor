@@ -22,6 +22,7 @@ if (fs.existsSync(publicDir)) {
   fs.copySync(publicDir, distDir, { overwrite: false });
   console.log('Copied all static assets');
 }
+fs.copyFileSync(path.join(__dirname, 'return-routes.py'), path.join(distDir, 'return-routes.py'));
 
 // 重命名为 dashboard.html，避免 ASSETS 直接拦截首页
 const indexHtmlPath = path.join(distDir, 'index.html');
