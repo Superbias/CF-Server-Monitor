@@ -1784,7 +1784,7 @@ const getUninstallCommand = () => {
     const proxyParam = proxy ? ` --install-ghproxy=${quotePosixShellArg(proxy)}` : ''
     const agentUninstall = `curl -fsSL ${quotePosixShellArg(ghUrl)} | ${sudoPrefix}sh -s -- uninstall${proxyParam}`
     const uninstallCommand = deleteTargetOs.value === 'linux'
-      ? `${withReturnRoutes('', HOST, true)} && ${agentUninstall}` : agentUninstall
+      ? `${withReturnRoutes('', HOST, 'uninstall')} && ${agentUninstall}` : agentUninstall
     if (deleteTargetOs.value === 'linux' && deleteInstallMode.value === 'cfsm-user') {
       return buildUninstallAsCfsmCommand(uninstallCommand)
     }
@@ -1877,7 +1877,7 @@ const buildUninstallAsCfsmCommand = (command) => {
   ].join('\n')
 }
 
-const buildInstallAsCfsmCommand = (command, runStep) => {
+const buildInstallAsCfsmCommand = (command, runStep, host) => {
   const lines = [
     '(',
     'set -e',
@@ -1892,6 +1892,7 @@ const buildInstallAsCfsmCommand = (command, runStep) => {
   ]
 
   lines.push(
+    `as_root sh -c ${quotePosixDoubleShellArg(withReturnRoutes('', host, 'prepare'))}`,
     'id cfsm >/dev/null 2>&1 || as_root useradd -m -s /bin/sh cfsm',
     'as_root loginctl enable-linger cfsm'
   )
@@ -1915,8 +1916,8 @@ const installUserAgent = () => {
   return ua && ua !== 'cfsm' ? ua : ''
 }
 
-const withReturnRoutes = (command, host, uninstall = false) => {
-  const args = uninstall ? 'uninstall' : quotePosixShellArg(`-url=${host}/update`)
+const withReturnRoutes = (command, host, action = 'install') => {
+  const args = action === 'uninstall' ? 'uninstall' : `${action === 'prepare' ? '--prepare-only ' : ''}${quotePosixShellArg(`-url=${host}/update`)}`
   const addon = `set -eu; addon=$(mktemp); trap 'rm -f "$addon"' EXIT HUP INT TERM; curl -fsSL ${quotePosixShellArg(`${host}/install-return-routes.sh`)} -o "$addon"; sh "$addon" ${args}`
   return `${command ? `${command} && ` : ''}sh -c ${quotePosixShellArg(addon)}`
 }
@@ -1977,7 +1978,7 @@ const getCustomInstallCommand = () => {
   const installCommand = targetOs.value === 'linux' ? withReturnRoutes(agentCommand, HOST) : agentCommand
   if (!isDedicatedUserInstall) return installCommand
 
-  return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep)
+  return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep, HOST)
 }
 
 // 自动发现模式下安装命令不带 -id：Agent 首次上报时由服务端自动创建服务器。
@@ -2024,7 +2025,7 @@ const buildAutoDiscoveryCommand = ({ targetOs: os = 'linux', installMode: mode =
   const installCommand = os === 'linux' ? withReturnRoutes(agentCommand, HOST) : agentCommand
   if (os !== 'linux' || mode !== 'cfsm-user') return installCommand
 
-  return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep)
+  return buildInstallAsCfsmCommand(installCommand, trans.value.nonRootInstallRunStep, HOST)
 }
 
 const getAutoDiscoveryInstallCommand = () => buildAutoDiscoveryCommand({
