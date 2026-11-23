@@ -1,3 +1,4 @@
+import { handleReturnRoutes } from './handlers/returnRoutes.js';
 import { initDatabase, weeklyCleanup, getMetricsHistory, clearHistory } from './database/schema.js';
 import { checkOfflineNodes, checkExpiringServers, checkResourceAlerts } from './services/notification.js';
 import { updateDatabase } from './database/updateDatabase.js';
@@ -278,6 +279,8 @@ export default {
     }
 
     const routes = [
+      { method: 'POST', path: '/return-routes', handler: () => handleReturnRoutes(request, env, null) },
+      { method: 'GET', path: '/api/return-routes', handler: async () => handleReturnRoutes(request, env, await ensureSiteSettings()) },
       { method: 'POST', path: '/update', handler: () => handleUpdate(request, env, ctx) },
       { method: 'GET', path: '/update', handler: () => handleUpdateWebSocketUpgrade(request, env) },
       { method: 'GET', path: '/__do/health', handler: async () => {
