@@ -1,4 +1,5 @@
 import { handleReturnRoutes } from './handlers/returnRoutes.js';
+import { handleForwardRoutes, runForwardRoutes } from './handlers/forwardRoutes.js';
 import { initDatabase, weeklyCleanup, getMetricsHistory, clearHistory } from './database/schema.js';
 import { checkOfflineNodes, checkExpiringServers, checkResourceAlerts } from './services/notification.js';
 import { updateDatabase } from './database/updateDatabase.js';
@@ -281,6 +282,7 @@ export default {
     const routes = [
       { method: 'POST', path: '/return-routes', handler: () => handleReturnRoutes(request, env, null) },
       { method: 'GET', path: '/api/return-routes', handler: async () => handleReturnRoutes(request, env, await ensureSiteSettings()) },
+      { method: 'GET', path: '/api/forward-routes', handler: async () => handleForwardRoutes(request, env, await ensureSiteSettings()) },
       { method: 'POST', path: '/update', handler: () => handleUpdate(request, env, ctx) },
       { method: 'GET', path: '/update', handler: () => handleUpdateWebSocketUpgrade(request, env) },
       { method: 'GET', path: '/__do/health', handler: async () => {
@@ -474,6 +476,7 @@ export default {
     const minute = now.getUTCMinutes();
     
     if (cron === '*/1 * * * *') {
+      ctx.waitUntil?.(runForwardRoutes(env).catch(error => console.error('[Forward routes]', error.message)));
       if (day === 0 && hour === 0 && minute < 5) {
         debug('[Cron] 每周日0:00-0:05表轮换期间，跳过离线节点检测');
       } else {
