@@ -42,7 +42,8 @@ def probe(carrier, target):
         # Numeric addresses only: no shell expansion or DNS destination changes.
         ipaddress.IPv4Address(target)
         result = subprocess.run(['traceroute', '-4', '-n', '-A', '-q', '1', '-w', '1', '-m', '30', target],
-                                capture_output=True, text=True, timeout=90, check=False)
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                universal_newlines=True, timeout=90, check=False)
         route['hops'] = parse_hops(result.stdout)
         if result.returncode:
             route['error'] = (result.stderr.strip() or 'traceroute failed')[:500]
