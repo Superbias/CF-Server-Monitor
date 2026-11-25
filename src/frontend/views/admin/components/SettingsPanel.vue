@@ -267,6 +267,12 @@
         <div class="section-title"><span>▸</span> {{ trans.notifications }}</div>
         <div class="form-row">
           <div class="form-group flex-1">
+            <label class="form-label"><input type="checkbox" v-model="settings.network_alert_enabled"> 三网 TCP 网络异常通知</label>
+            <small>节点仍在上报，电信、联通、移动连续 10 分钟全部 100% 丢包时通知一次，恢复后再通知。仅检查 TCP 模式下配置的三网 IPv4 目标；上报间隔须不超过 120 秒。不能据此确认被墙。</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
             <label class="form-label">{{ trans.offlineAlert }}</label>
             <select v-model="settings.tg_notify" class="form-select">
               <option v-for="option in offlineNotifyOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
