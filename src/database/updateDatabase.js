@@ -227,6 +227,7 @@ export async function cleanupStaleSettings(db) {
       'show_time',
       'show_long_history',
       'tg_notify',
+      'network_alert_enabled',
       'tg_bot_token',
       'tg_chat_id',
       'last_aggregated_to',
