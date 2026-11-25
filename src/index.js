@@ -1,6 +1,7 @@
 import { handleReturnRoutes } from './handlers/returnRoutes.js';
 import { handleForwardRoutes, runForwardRoutes } from './handlers/forwardRoutes.js';
 import { initDatabase, weeklyCleanup, getMetricsHistory, clearHistory } from './database/schema.js';
+import { checkNetworkAlerts } from './services/networkAlerts.js';
 import { checkOfflineNodes, checkExpiringServers, checkResourceAlerts } from './services/notification.js';
 import { updateDatabase } from './database/updateDatabase.js';
 import { handleAdminAPI } from './handlers/admin.js';
@@ -489,6 +490,7 @@ export default {
         debug('[Cron] 离线节点检测完成');
         debug('[Cron] 开始执行资源负载告警检测');
         await checkResourceAlerts(env, { siteSettings });
+        await checkNetworkAlerts(env, { siteSettings }).catch(error => console.error('[Network alerts]', error.message));
         debug('[Cron] 资源负载告警检测完成');
       }
     } else if (cron === '0 * * * *') {
