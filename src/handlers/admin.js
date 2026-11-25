@@ -898,7 +898,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null,
         ? normalizeResourceAlertRules(settings.resource_alert_rules)
         : currentResourceAlertRules;
       const resourceAlertEnabled = normalizedResourceAlertRules.length > 0;
-      if (tgNotify !== '0' || expireReminder !== '0' || resourceAlertEnabled) {
+      if (tgNotify !== '0' || expireReminder !== '0' || resourceAlertEnabled || normalizeBooleanSetting(settings.network_alert_enabled ?? sys?.network_alert_enabled) === 'true') {
         const webhookEnabled = settings.notification_webhook_enabled !== undefined
           ? normalizeBooleanSetting(settings.notification_webhook_enabled) === 'true'
           : normalizeBooleanSetting(sys?.notification_webhook_enabled) === 'true';
