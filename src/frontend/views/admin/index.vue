@@ -970,6 +970,7 @@ const settings = ref({
   frontend_ws_timeout_minutes: 0,
   long_history_points: String(HISTORY.DEFAULT_LONG_RANGE_POINTS),
   tg_notify: '0',
+  network_alert_enabled: false,
   expire_reminder: '0',
   resource_alert_rules: [],
   traffic_alert_threshold: 0,
@@ -1424,6 +1425,7 @@ const loadSettings = async () => {
         frontend_ws_timeout_minutes: normalizeFrontendWsTimeoutMinutesSetting(settingsData.frontend_ws_timeout_minutes),
         long_history_points: normalizeLongHistoryPointsSetting(settingsData.long_history_points),
         tg_notify: normalizeTgNotifySetting(settingsData.tg_notify),
+        network_alert_enabled: settingsData.network_alert_enabled === 'true' || settingsData.network_alert_enabled === true,
         expire_reminder: normalizeExpireReminderSetting(settingsData.expire_reminder),
         resource_alert_rules: normalizeResourceAlertRulesSetting(settingsData.resource_alert_rules),
         traffic_alert_threshold: Number(settingsData.traffic_alert_threshold) || 0,
@@ -1561,7 +1563,7 @@ const saveSettings = async () => {
     }
   }
 
-  if (isTgNotifyEnabled(settings.value.tg_notify) || isExpireReminderEnabled(settings.value.expire_reminder) || isResourceAlertEnabled(settings.value.resource_alert_rules)) {
+  if (settings.value.network_alert_enabled || isTgNotifyEnabled(settings.value.tg_notify) || isExpireReminderEnabled(settings.value.expire_reminder) || isResourceAlertEnabled(settings.value.resource_alert_rules)) {
     if (isNotificationWebhookEnabled()) {
       if (!settings.value.notification_webhook_url || settings.value.notification_webhook_url.trim().length === 0) {
         validationError.value = trans.value.notificationWebhookUrlRequired || 'Webhook URL is required'
@@ -1626,6 +1628,7 @@ const saveSettings = async () => {
       frontend_ws_timeout_minutes: String(frontendWsTimeoutMinutes),
       long_history_points: normalizeLongHistoryPointsSetting(settings.value.long_history_points),
       tg_notify: normalizeTgNotifySetting(settings.value.tg_notify),
+      network_alert_enabled: settings.value.network_alert_enabled ? 'true' : 'false',
       expire_reminder: normalizeExpireReminderSetting(settings.value.expire_reminder),
       resource_alert_rules: normalizeResourceAlertRulesSetting(settings.value.resource_alert_rules),
       traffic_alert_threshold: String(Math.max(0, Math.min(100, Number(settings.value.traffic_alert_threshold) || 0))),
